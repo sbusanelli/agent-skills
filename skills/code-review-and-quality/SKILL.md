@@ -265,6 +265,70 @@ Part of code review is dependency review:
 
 **Rule:** Prefer standard library and existing utilities over new dependencies. Every dependency is a liability.
 
+## Confidence & Quality Assessment
+
+### Two-Axis Evaluation
+
+Reviews assess two distinct dimensions:
+
+**1. Verification Confidence (0.00-1.00)**
+How much the reviewer could actually verify:
+
+| Score Range | Confidence Level | Description |
+|-------------|------------------|-------------|
+| **0.90 - 1.00** | High | Every claim verified against codebase. Strong evidence for verdict. |
+| **0.70 - 0.89** | Moderate | Most claims verified, but some couldn't be checked locally (external APIs, runtime behavior). |
+| **0.50 - 0.69** | Low | Significant gaps in what could be verified. Plan touches areas reviewer couldn't fully inspect. |
+| **0.00 - 0.49** | Very Low | Reviewer couldn't verify most claims. Treat findings as directional, not definitive. |
+
+**2. Code Quality (0.00-1.00)**
+How good the code is once verified:
+
+| Score Range | Quality Level | Description |
+|-------------|---------------|-------------|
+| **0.90 - 1.00** | Excellent | No significant issues found. Follows best practices. |
+| **0.70 - 0.89** | Good | Minor issues that should be addressed. Generally sound. |
+| **0.50 - 0.69** | Fair | Notable issues that need attention. Functional but problematic. |
+| **0.00 - 0.49** | Poor | Serious problems that block merge. |
+
+### LLM-As-A-Judge Process
+
+**⚠️ LLM Calibration Warning**
+LLM-generated confidence scores are notoriously miscalibrated. Treat these numbers as directional indicators, not precise measurements. A "0.87 confidence" score without calibration data is essentially theater.
+
+**Use separate models for independent evaluation:**
+
+1. **Ingest Change** - Read diff, understand requirements, identify scope
+2. **Inspect Workspace** - Verify files, check dependencies, validate integration points  
+3. **Evaluate Independently** - Score across five axes without seeing other reviews
+4. **Document Gaps** - Clearly state what couldn't be verified
+
+**Structured Verdict Format**
+
+Produce a structured verdict with findings and verification gaps. See `references/code-review-verdict-schema.md` for an optional schema template.
+
+Focus on clear, actionable feedback rather than rigid JSON structure.
+
+### Multi-Model Review Pattern
+
+```
+Model A writes the code
+    |
+    v
+Model B reviews independently (Judge #1)
+    |
+    v  
+Model C reviews independently (Judge #2)
+    |
+    v
+Model A addresses feedback
+    |
+    v
+Human makes final decision
+```
+
+Different models catch different issues. Use independent evaluation for high-risk changes.
+
 ## The Review Checklist
 
 ```markdown
@@ -301,19 +365,28 @@ Part of code review is dependency review:
 - [ ] No unbounded operations
 - [ ] Pagination on list endpoints
 
-### Verification
-- [ ] Tests pass
-- [ ] Build succeeds
-- [ ] Manual verification done (if applicable)
+### Verification Confidence
+- [ ] All claims could be verified locally
+- [ ] External dependencies checked
+- [ ] Runtime behavior observable
+- [ ] Integration points accessible
 
-### Verdict
-- [ ] **Approve** — Ready to merge
-- [ ] **Request changes** — Issues must be addressed
+### Two-Axis Assessment
+- [ ] Verification confidence calculated (0.00-1.00)
+- [ ] Code quality assessed (0.00-1.00)
+- [ ] Verification gaps documented
+- [ ] Evidence for findings provided
+
+### Decision
+- [ ] **Approve** - High confidence + good quality
+- [ ] **Approve with changes** - Issues that should be fixed first
+- [ ] **Request major revision** - Significant problems found
 ```
 ## See Also
 
-- For detailed security review guidance, see `references/security-checklist.md`
-- For performance review checks, see `references/performance-checklist.md`
+- For detailed security review guidance, see `security-and-hardening`
+- For performance review checks, see `performance-optimization`
+- For verdict schema reference, see `references/code-review-verdict-schema.md`
 
 ## Common Rationalizations
 
@@ -324,6 +397,9 @@ Part of code review is dependency review:
 | "We'll clean it up later" | Later never comes. The review is the quality gate — use it. Require cleanup before merge, not after. |
 | "AI-generated code is probably fine" | AI code needs more scrutiny, not less. It's confident and plausible, even when wrong. |
 | "The tests pass, so it's good" | Tests are necessary but not sufficient. They don't catch architecture problems, security issues, or readability concerns. |
+| "The confidence score is just a number" | Confidence scores quantify verification gaps. Low scores indicate uncertainty that should be addressed. |
+| "Multiple judges are overkill" | Different models have different blind spots. Independent evaluation catches issues a single reviewer misses. |
+| "LLM confidence is accurate" | LLM confidence scores are notoriously miscalibrated. Treat as directional indicators, not precise measurements. |
 
 ## Red Flags
 
@@ -335,6 +411,11 @@ Part of code review is dependency review:
 - No regression tests with bug fix PRs
 - Review comments without severity labels — makes it unclear what's required vs optional
 - Accepting "I'll fix it later" — it never happens
+- High confidence scores (0.90+) without documented verification evidence
+- Low confidence scores (<0.70) ignored or overridden without justification
+- Single reviewer for high-risk changes without independent validation
+- Missing verification gaps in review findings
+- Treating LLM confidence scores as precise measurements
 
 ## Verification
 
@@ -345,3 +426,7 @@ After review is complete:
 - [ ] Tests pass
 - [ ] Build succeeds
 - [ ] The verification story is documented (what changed, how it was verified)
+- [ ] Confidence score calculated and documented with evidence
+- [ ] Verification gaps clearly identified and explained
+- [ ] Structured verdict includes specific findings and recommendations
+- [ ] For high-risk changes: at least two independent judges provided assessments
